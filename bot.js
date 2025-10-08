@@ -49,14 +49,14 @@ const olegVocabulary = {
 // 🎭 Шаблоны для генерации фраз
 const phraseTemplates = [
     "{greeting}, {address}! {state} {topic} - это {quality}!",
-    "{state} ты про {topic}!{emotion} {verb} такие темы!",
+    "{state} ты про {topic}! {emotion} {verb} такие темы!",
     "{greeting}! {topic} - это {adverb} {quality} тема! {action} обсуждать!",
     "{interjection}... {topic}... {verb} это всей душой!",
     "{address}, {topic} - это просто {emotion}! {state}",
     "{greeting}! {verb} когда говорят о {topic}! {quality} же!",
-    "{state} {topic}! {adverb} {quality} вещь! {action}!
+    "{state} {topic}! {adverb} {quality} вещь! {action}!",
     "{interjection} {topic}... {verb} такие моменты!",
-    "{greeting}, {address}! {topic} - это {emotion}!
+    "{greeting}, {address}! {topic} - это {emotion}!",
     "{state} ты затронул {topic}! {verb} это!"
 ];
 
