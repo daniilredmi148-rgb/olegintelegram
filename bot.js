@@ -5,7 +5,7 @@ import express from 'express';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Basic health check endpoint
+app.use(express.json());
 app.get('/', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -20,53 +20,222 @@ app.listen(PORT, () => {
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// База знаний Олега с категориями
+// Расширенная база знаний Олега с темами
 const knowledgeBase = {
   greetings: [
-    'Привет! Как дела?',
-    'Здравствуй! Рад тебя видеть',
+    'Привет! Как твои дела?',
+    'Здравствуй! Рад тебя видеть!',
     'Приветствую! Что нового?',
-    'Привет! Как твои дела?'
+    'Привет! Как прошел твой день?',
+    'Хай! Как настроение?',
+    'Доброго времени суток!',
+    'Приветик! Как жизнь?',
+    'Здарова! Что расскажешь?',
+    'Привет! Давно не общались',
+    'Привет! Чем занят?'
   ],
   questions: [
     'Интересно, а что ты думаешь об этом?',
     'Хм, хороший вопрос... А сам как считаешь?',
     'Давай обсудим это подробнее',
-    'Интересная тема, расскажи больше'
+    'Интересная тема, расскажи больше',
+    'А почему ты спросил об этом?',
+    'Это действительно важный вопрос',
+    'Давай разберемся вместе',
+    'Интересно твое мнение на этот счет',
+    'А как бы ты сам ответил на этот вопрос?',
+    'Давай подумаем над этим'
   ],
-  emotions: [
-    'Понимаю тебя...',
-    'Это действительно важно',
-    'Интересная мысль!',
-    'Я тебя слышу'
+  emotions_positive: [
+    'Это прекрасно! Рад за тебя!',
+    'Здорово! Продолжай в том же духе!',
+    'Отлично! Так держать!',
+    'Супер! Я разделяю твою радость!',
+    'Замечательно! Это вдохновляет!',
+    'Превосходно! Ты молодец!',
+    'Великолепно! Рад это слышать!',
+    'Чудесно! Поздравляю!',
+    'Фантастика! Горжусь тобой!',
+    'Браво! Ты на правильном пути!'
   ],
-  general: [
-    'Расскажи подробнее',
-    'Интересно... Продолжай',
-    'Что еще тебя волнует?',
-    'Давай поговорим о чем-то другом'
+  emotions_negative: [
+    'Понимаю тебя... Это непросто',
+    'Сочувствую... Держись!',
+    'Я тебя понимаю... Всё наладится',
+    'Это действительно тяжело...',
+    'Принимаю твои чувства...',
+    'Сложная ситуация... Но ты справишься',
+    'Понимаю твою боль...',
+    'Это должно быть трудно для тебя...',
+    'Сочувствую... Время лечит',
+    'Признаю твои переживания...'
+  ],
+  technology: [
+    'Технологии - это интересно! Что тебя привлекает?',
+    'Любопытная техническая тема!',
+    'Технологии постоянно развиваются, не так ли?',
+    'Интересный аспект технологий!',
+    'Технический прогресс не стоит на месте',
+    'Увлекательная техническая дискуссия!',
+    'Технологии меняют наш мир',
+    'Интересно наблюдать за развитием технологий',
+    'Технические инновации всегда впечатляют',
+    'Технологии открывают новые возможности'
+  ],
+  entertainment: [
+    'Развлечения - это важно для отдыха!',
+    'Интересно, что тебе нравится?',
+    'Культура и искусство обогащают жизнь',
+    'Забавная тема!',
+    'Развлечения помогают расслабиться',
+    'Интересные предпочтения!',
+    'Искусство всегда вдохновляет',
+    'Культурные мероприятия - это здорово',
+    'Развлечения делают жизнь ярче',
+    'Творчество - прекрасное занятие'
+  ],
+  sports: [
+    'Спорт - это здорово! Ты активный человек?',
+    'Спортивные достижения впечатляют!',
+    'Физическая активность полезна для здоровья',
+    'Интересная спортивная тема!',
+    'Спорт объединяет людей',
+    'Соревновательный дух - это вдохновляюще',
+    'Спортивные события всегда захватывают',
+    'Активный образ жизни - это правильно',
+    'Спорт развивает характер',
+    'Спортивные увлечения разнообразны'
+  ],
+  work_study: [
+    'Работа/учеба - важная часть жизни!',
+    'Профессиональное развитие - это ценно',
+    'Интересная рабочая/учебная тема!',
+    'Образование открывает новые горизонты',
+    'Карьерный рост требует усилий',
+    'Учеба помогает развиваться',
+    'Работа занимает значительную часть времени',
+    'Профессиональные навыки очень важны',
+    'Обучение - непрерывный процесс',
+    'Рабочие/учебные challenges помогают расти'
+  ],
+  philosophy: [
+    'Глубокие мысли... Что еще тебя волнует?',
+    'Философские размышления всегда интересны',
+    'Жизненные вопросы требуют осмысления',
+    'Мудрая тема для обсуждения',
+    'Философия помогает понять мир',
+    'Глубокомысленное наблюдение',
+    'Вечные вопросы человечества...',
+    'Философский подход к жизни важен',
+    'Размышления об смыслах всегда актуальны',
+    'Философия расширяет сознание'
+  ],
+  everyday: [
+    'Повседневные дела занимают много времени, да?',
+    'Будничные заботы... Как с ними справляешься?',
+    'Рутина бывает утомительной, но необходима',
+    'Повседневная жизнь полна мелочей',
+    'Бытовые вопросы требуют внимания',
+    'Повседневные ритуалы важны для порядка',
+    'Жизнь состоит из маленьких моментов',
+    'Будничные дела формируют нашу жизнь',
+    'Повседневность имеет свою прелесть',
+    'Обыденные вещи могут быть интересными'
   ]
 };
 
-// История разговоров для контекста
+// Система частоты использования фраз
+const phraseUsage = new Map();
 const conversationHistory = new Map();
-const MAX_HISTORY = 10;
+const userTopics = new Map();
+const MAX_HISTORY = 15;
+const PHRASE_COOLDOWN = 10; // сообщений до повторения фразы
 
 // Ключевые слова для активации Олега
-const triggerWords = ['олег', 'олежа', 'олег', 'oleg', 'oleg', 'леха'];
+const triggerWords = ['олег', 'олежа', 'олег', 'oleg', 'oleg', 'леха', 'олег'];
 
-// Функция для добавления в историю
-function addToHistory(userId, message) {
+// Тематические ключевые слова
+const topicKeywords = {
+  technology: ['компьютер', 'телефон', 'интернет', 'программа', 'приложение', 'гаджет', 'смартфон', 'ноутбук', 'айти', 'технологи', 'код', 'программирование', 'софт', 'хард', 'девайс'],
+  entertainment: ['фильм', 'сериал', 'музыка', 'игра', 'кино', 'концерт', 'театр', 'искусство', 'творчество', 'развлечен', 'хобби', 'отдых', 'юмор', 'смех'],
+  sports: ['спорт', 'футбол', 'хоккей', 'баскетбол', 'тренировка', 'матч', 'соревнование', 'победа', 'проигрыш', 'зал', 'фитнес', 'бег', 'плавание'],
+  work_study: ['работа', 'учеба', 'проект', 'задание', 'дедлайн', 'начальник', 'коллега', 'студент', 'преподаватель', 'урок', 'лекция', 'семinar', 'карьера'],
+  philosophy: ['жизнь', 'смысл', 'судьба', 'время', 'смерть', 'любовь', 'дружба', 'истина', 'ложь', 'добро', 'зло', 'мораль', 'этика', 'философия'],
+  everyday: ['дом', 'еда', 'покупки', 'уборка', 'готовка', 'сон', 'пробуждение', 'транспорт', 'дорога', 'магазин', 'продукты', 'быт', 'рутина']
+};
+
+// Функция для определения темы сообщения
+function detectTopic(message) {
+  const lowerMessage = message.toLowerCase();
+  const topicScores = {};
+  
+  // Считаем баллы для каждой темы
+  for (const [topic, keywords] of Object.entries(topicKeywords)) {
+    topicScores[topic] = keywords.reduce((score, keyword) => {
+      return score + (lowerMessage.includes(keyword) ? 1 : 0);
+    }, 0);
+  }
+  
+  // Находим тему с максимальным количеством баллов
+  const maxScore = Math.max(...Object.values(topicScores));
+  if (maxScore > 0) {
+    const detectedTopics = Object.entries(topicScores)
+      .filter(([_, score]) => score === maxScore)
+      .map(([topic]) => topic);
+    
+    return detectedTopics[Math.floor(Math.random() * detectedTopics.length)];
+  }
+  
+  return 'general';
+}
+
+// Функция для получения редко используемой фразы
+function getRarePhrase(topic, userId) {
+  const phrases = knowledgeBase[topic] || knowledgeBase.general;
+  const userUsage = phraseUsage.get(userId) || new Map();
+  
+  // Фильтруем фразы по частоте использования
+  const availablePhrases = phrases.filter((phrase, index) => {
+    const usageCount = userUsage.get(phrase) || 0;
+    return usageCount < 2; // Максимум 2 использования на фразу
+  });
+  
+  // Если все фразы использованы много раз, сбрасываем счетчики
+  if (availablePhrases.length === 0) {
+    phraseUsage.set(userId, new Map());
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+  
+  // Выбираем случайную фразу из доступных
+  const selectedPhrase = availablePhrases[Math.floor(Math.random() * availablePhrases.length)];
+  
+  // Обновляем счетчик использования
+  const newUsageCount = (userUsage.get(selectedPhrase) || 0) + 1;
+  userUsage.set(selectedPhrase, newUsageCount);
+  phraseUsage.set(userId, userUsage);
+  
+  return selectedPhrase;
+}
+
+// Функция для добавления в историю и анализа темы
+function addToHistory(userId, message, username) {
   if (!conversationHistory.has(userId)) {
     conversationHistory.set(userId, []);
   }
   
   const history = conversationHistory.get(userId);
+  const topic = detectTopic(message);
+  
   history.push({
     text: message,
     timestamp: Date.now(),
+    topic: topic,
+    username: username,
     used: false
   });
+  
+  // Обновляем профиль тем пользователя
+  updateUserTopics(userId, topic);
   
   // Ограничиваем размер истории
   if (history.length > MAX_HISTORY) {
@@ -74,26 +243,54 @@ function addToHistory(userId, message) {
   }
 }
 
-// Функция для получения контекста
-function getContext(userId, currentMessage) {
+// Функция для обновления тем пользователя
+function updateUserTopics(userId, topic) {
+  if (!userTopics.has(userId)) {
+    userTopics.set(userId, new Map());
+  }
+  
+  const topics = userTopics.get(userId);
+  topics.set(topic, (topics.get(topic) || 0) + 1);
+}
+
+// Функция для получения предпочтительной темы пользователя
+function getUserPreferredTopic(userId) {
+  if (!userTopics.has(userId)) return 'general';
+  
+  const topics = userTopics.get(userId);
+  let maxCount = 0;
+  let preferredTopic = 'general';
+  
+  for (const [topic, count] of topics.entries()) {
+    if (count > maxCount) {
+      maxCount = count;
+      preferredTopic = topic;
+    }
+  }
+  
+  return preferredTopic;
+}
+
+// Функция для получения контекста из истории
+function getContext(userId, currentTopic) {
   if (!conversationHistory.has(userId)) return null;
   
   const history = conversationHistory.get(userId);
-  const unusedMessages = history.filter(msg => !msg.used);
+  const relevantMessages = history.filter(msg => 
+    !msg.used && msg.topic === currentTopic
+  );
   
-  if (unusedMessages.length === 0) return null;
+  if (relevantMessages.length === 0) return null;
   
-  // Выбираем случайное непрочитанное сообщение
-  const randomIndex = Math.floor(Math.random() * unusedMessages.length);
-  const contextMessage = unusedMessages[randomIndex];
-  
-  // Помечаем как использованное
+  const contextMessage = relevantMessages[
+    Math.floor(Math.random() * relevantMessages.length)
+  ];
   contextMessage.used = true;
   
   return contextMessage.text;
 }
 
-// Функция для определения категории сообщения
+// Улучшенная функция категоризации
 function categorizeMessage(text) {
   const lowerText = text.toLowerCase();
   
@@ -103,11 +300,15 @@ function categorizeMessage(text) {
   if (/(\?|что|как|почему|зачем|когда|где)/.test(lowerText)) {
     return 'questions';
   }
-  if (/(груст|рад|злюсь|сердит|радост|счаст|обид|зло|весел)/.test(lowerText)) {
-    return 'emotions';
+  if (/(груст|печал|тоск|плохо|тяжело|сложно|устал|утомил)/.test(lowerText)) {
+    return 'emotions_negative';
+  }
+  if (/(рад|счаст|весел|хорошо|отлично|прекрас|замечат|супер)/.test(lowerText)) {
+    return 'emotions_positive';
   }
   
-  return 'general';
+  const topic = detectTopic(text);
+  return topic !== 'general' ? topic : 'general';
 }
 
 // Функция для проверки, нужно ли отвечать
@@ -124,63 +325,90 @@ function shouldRespond(ctx) {
   const isReplyToOleg = isReply && 
     ctx.message.reply_to_message.from.username === ctx.botInfo.username;
   
-  return hasTrigger || isReplyToOleg;
+  // Иногда отвечаем на вопросы даже без упоминания (30% chance)
+  const isQuestion = /(\?|что|как|почему|зачем)/.test(messageText);
+  const randomResponse = isQuestion && Math.random() < 0.3;
+  
+  return hasTrigger || isReplyToOleg || randomResponse;
 }
 
-// Функция для генерации ответа
-function generateResponse(userId, userMessage) {
+// Улучшенная функция генерации ответа
+function generateResponse(userId, userMessage, username) {
   const category = categorizeMessage(userMessage);
-  const context = getContext(userId, userMessage);
+  const userTopic = getUserPreferredTopic(userId);
+  const context = getContext(userId, category);
   
-  // Берем ответ из соответствующей категории
-  const possibleResponses = [...knowledgeBase[category]];
-  
-  // Если есть контекст, добавляем персонализированные ответы
-  if (context) {
-    possibleResponses.push(
-      `Кстати, о том что ты говорил: "${context.substring(0, 50)}..."`,
-      `В продолжение нашей темы...`,
-      `Помнишь, ты говорил про это?`
-    );
+  // Определяем, какую тему использовать
+  let responseTopic = category;
+  if (category === 'general' && userTopic !== 'general') {
+    responseTopic = userTopic;
   }
   
-  // Добавляем ответы, использующие слова пользователя
+  // Получаем редко используемую фразу
+  let response = getRarePhrase(responseTopic, userId);
+  
+  // Добавляем персонализацию на основе контекста
+  if (context) {
+    const contextVariations = [
+      `Кстати, о том что ты говорил "${context.substring(0, 40)}..."`,
+      `Помнишь, мы обсуждали "${context.substring(0, 35)}"?`,
+      `В продолжение твоей мысли о "${context.substring(0, 30)}"...`,
+      `Насчет твоего сообщения "${context.substring(0, 35)}"...`
+    ];
+    
+    if (Math.random() < 0.6) { // 60% chance использовать контекст
+      response = contextVariations[Math.floor(Math.random() * contextVariations.length)];
+    }
+  }
+  
+  // Добавляем использование слов пользователя
   const userWords = userMessage.split(' ').filter(word => 
-    word.length > 3 && !triggerWords.includes(word.toLowerCase())
+    word.length > 3 && 
+    !triggerWords.includes(word.toLowerCase()) &&
+    !/(http|www|\.com|\.ru)/.test(word)
   );
   
-  if (userWords.length > 0) {
+  if (userWords.length > 0 && Math.random() < 0.4) {
     const randomWord = userWords[Math.floor(Math.random() * userWords.length)];
-    possibleResponses.push(
-      `Расскажи больше о "${randomWord}"`,
-      `Мне интересно твое мнение о ${randomWord}`,
-      `А что для тебя значит "${randomWord}"?`
-    );
+    const wordVariations = [
+      `Мне интересно твое мнение о "${randomWord}"`,
+      `Расскажи больше про "${randomWord}"`,
+      `А что для тебя значит "${randomWord}"?`,
+      `Интересное слово "${randomWord}"...`
+    ];
+    response = wordVariations[Math.floor(Math.random() * wordVariations.length)];
   }
   
-  // Выбираем случайный ответ
-  return possibleResponses[Math.floor(Math.random() * possibleResponses.length)];
+  // Иногда добавляем имя пользователя
+  if (username && Math.random() < 0.3) {
+    response = response.replace(/\.$/, '') + `, ${username}`;
+  }
+  
+  return response;
 }
 
 // Обработчик сообщений
 bot.on(message('text'), async (ctx) => {
   const userId = ctx.from.id;
   const userMessage = ctx.message.text;
+  const username = ctx.from.first_name;
   
-  console.log(`Message from ${ctx.from.first_name}: ${userMessage}`);
+  console.log(`Message from ${username}: ${userMessage}`);
+  console.log(`Detected topic: ${detectTopic(userMessage)}`);
   
-  // Добавляем сообщение в историю
-  addToHistory(userId, userMessage);
+  // Добавляем сообщение в историю с анализом темы
+  addToHistory(userId, userMessage, username);
   
   // Проверяем, нужно ли отвечать
   if (shouldRespond(ctx)) {
     // Генерируем ответ
-    const response = generateResponse(userId, userMessage);
+    const response = generateResponse(userId, userMessage, username);
     
-    console.log(`Responding to ${ctx.from.first_name}: ${response}`);
+    console.log(`Responding to ${username}: ${response}`);
+    console.log(`User topics:`, Array.from(userTopics.get(userId) || []));
     
-    // Отправляем ответ с случайной задержкой (как будто думает)
-    const delay = Math.random() * 2000 + 1000;
+    // Отправляем ответ с естественной задержкой
+    const delay = Math.random() * 3000 + 1500;
     
     setTimeout(async () => {
       try {
@@ -192,43 +420,69 @@ bot.on(message('text'), async (ctx) => {
   }
 });
 
-// Обработчик команд
+// Команды бота
 bot.command('start', (ctx) => {
-  ctx.reply('Привет! Я Олег. Упоминайте мое имя или отвечайте на мои сообщения, чтобы пообщаться!');
+  ctx.reply('Привет! Я Олег. Упоминайте мое имя или отвечайте на мои сообщения, чтобы пообщаться! Я запоминаю наши разговоры и стараюсь не повторяться.');
 });
 
-bot.command('status', (ctx) => {
+bot.command('topics', (ctx) => {
   const userId = ctx.from.id;
-  const history = conversationHistory.get(userId) || [];
-  ctx.reply(`Статус: активен\nСообщений в истории: ${history.length}`);
+  const topics = userTopics.get(userId);
+  
+  if (topics && topics.size > 0) {
+    const topicList = Array.from(topics.entries())
+      .map(([topic, count]) => `${topic}: ${count} сообщений`)
+      .join('\n');
+    ctx.reply(`Твои любимые темы:\n${topicList}`);
+  } else {
+    ctx.reply('Мы еще недостаточно общались, чтобы определить твои любимые темы!');
+  }
 });
 
-// Функция для периодической очистки истории
+bot.command('reset', (ctx) => {
+  const userId = ctx.from.id;
+  conversationHistory.delete(userId);
+  userTopics.delete(userId);
+  phraseUsage.delete(userId);
+  ctx.reply('История нашего общения очищена! Начнем с чистого листа.');
+});
+
+// Периодическая очистка старых данных
 setInterval(() => {
   const now = Date.now();
-  const oneHour = 60 * 60 * 1000;
-  let cleared = 0;
+  const threeHours = 3 * 60 * 60 * 1000;
+  let clearedHistories = 0;
+  let clearedTopics = 0;
   
+  // Очищаем старую историю
   for (const [userId, history] of conversationHistory.entries()) {
     const filteredHistory = history.filter(msg => 
-      now - msg.timestamp < oneHour
+      now - msg.timestamp < threeHours
     );
     
     if (filteredHistory.length === 0) {
       conversationHistory.delete(userId);
-      cleared++;
+      clearedHistories++;
     } else {
       conversationHistory.set(userId, filteredHistory);
     }
   }
   
-  console.log(`Cleared ${cleared} expired histories`);
-}, 30 * 60 * 1000); // Каждые 30 минут
+  // Очищаем редко используемые фразы
+  for (const [userId, usage] of phraseUsage.entries()) {
+    if (now - (usage.get('_lastActive') || 0) > threeHours) {
+      phraseUsage.delete(userId);
+    }
+  }
+  
+  console.log(`Cleaned up: ${clearedHistories} histories, ${clearedTopics} topics`);
+}, 60 * 60 * 1000); // Каждый час
 
 // Запуск бота
-console.log('Starting Oleg bot...');
+console.log('Starting enhanced Oleg bot...');
 bot.launch().then(() => {
-  console.log('Бот Олег успешно запущен!');
+  console.log('Улучшенный бот Олег успешно запущен!');
+  console.log('Доступные темы:', Object.keys(knowledgeBase));
 }).catch((error) => {
   console.error('Ошибка запуска бота:', error);
   process.exit(1);
