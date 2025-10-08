@@ -1,5 +1,22 @@
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
+import express from 'express';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Basic health check endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    bot: 'Oleg is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -80,13 +97,13 @@ function getContext(userId, currentMessage) {
 function categorizeMessage(text) {
   const lowerText = text.toLowerCase();
   
-  if (/(привет|здравств|хай|hello|hi)/.test(lowerText)) {
+  if (/(привет|здравств|хай|hello|hi|добрый|утро|вечер|день)/.test(lowerText)) {
     return 'greetings';
   }
-  if (/(\?|что|как|почему|зачем)/.test(lowerText)) {
+  if (/(\?|что|как|почему|зачем|когда|где)/.test(lowerText)) {
     return 'questions';
   }
-  if (/(груст|рад|злюсь|сердит|радост|счаст)/.test(lowerText)) {
+  if (/(груст|рад|злюсь|сердит|радост|счаст|обид|зло|весел)/.test(lowerText)) {
     return 'emotions';
   }
   
@@ -150,6 +167,8 @@ bot.on(message('text'), async (ctx) => {
   const userId = ctx.from.id;
   const userMessage = ctx.message.text;
   
+  console.log(`Message from ${ctx.from.first_name}: ${userMessage}`);
+  
   // Добавляем сообщение в историю
   addToHistory(userId, userMessage);
   
@@ -158,11 +177,17 @@ bot.on(message('text'), async (ctx) => {
     // Генерируем ответ
     const response = generateResponse(userId, userMessage);
     
+    console.log(`Responding to ${ctx.from.first_name}: ${response}`);
+    
     // Отправляем ответ с случайной задержкой (как будто думает)
     const delay = Math.random() * 2000 + 1000;
     
     setTimeout(async () => {
-      await ctx.reply(response);
+      try {
+        await ctx.reply(response);
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     }, delay);
   }
 });
@@ -172,10 +197,17 @@ bot.command('start', (ctx) => {
   ctx.reply('Привет! Я Олег. Упоминайте мое имя или отвечайте на мои сообщения, чтобы пообщаться!');
 });
 
+bot.command('status', (ctx) => {
+  const userId = ctx.from.id;
+  const history = conversationHistory.get(userId) || [];
+  ctx.reply(`Статус: активен\nСообщений в истории: ${history.length}`);
+});
+
 // Функция для периодической очистки истории
 setInterval(() => {
   const now = Date.now();
   const oneHour = 60 * 60 * 1000;
+  let cleared = 0;
   
   for (const [userId, history] of conversationHistory.entries()) {
     const filteredHistory = history.filter(msg => 
@@ -184,16 +216,33 @@ setInterval(() => {
     
     if (filteredHistory.length === 0) {
       conversationHistory.delete(userId);
+      cleared++;
     } else {
       conversationHistory.set(userId, filteredHistory);
     }
   }
+  
+  console.log(`Cleared ${cleared} expired histories`);
 }, 30 * 60 * 1000); // Каждые 30 минут
 
 // Запуск бота
-await bot.launch();
-console.log('Бот Олег запущен!');
+console.log('Starting Oleg bot...');
+bot.launch().then(() => {
+  console.log('Бот Олег успешно запущен!');
+}).catch((error) => {
+  console.error('Ошибка запуска бота:', error);
+  process.exit(1);
+});
 
 // Элегантное завершение работы
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => {
+  console.log('Shutting down...');
+  bot.stop('SIGINT');
+  process.exit(0);
+});
+
+process.once('SIGTERM', () => {
+  console.log('Shutting down...');
+  bot.stop('SIGTERM');
+  process.exit(0);
+});
