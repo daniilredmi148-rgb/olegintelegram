@@ -141,6 +141,18 @@ const knowledgeBase = {
     'Будничные дела формируют нашу жизнь',
     'Повседневность имеет свою прелесть',
     'Обыденные вещи могут быть интересными'
+  ],
+  general: [
+    'Интересно... Расскажи подробнее',
+    'Понятно... Что еще хочешь обсудить?',
+    'Любопытно... Продолжай',
+    'Занимательная тема!',
+    'Давай поговорим об этом',
+    'Интересная мысль!',
+    'Продолжаю слушать...',
+    'Что еще тебя интересует?',
+    'Давай обсудим это',
+    'Интересная точка зрения!'
   ]
 };
 
@@ -149,7 +161,6 @@ const phraseUsage = new Map();
 const conversationHistory = new Map();
 const userTopics = new Map();
 const MAX_HISTORY = 15;
-const PHRASE_COOLDOWN = 10; // сообщений до повторения фразы
 
 // Ключевые слова для активации Олега
 const triggerWords = ['олег', 'олежа', 'олег', 'oleg', 'oleg', 'леха', 'олег'];
@@ -189,25 +200,37 @@ function detectTopic(message) {
   return 'general';
 }
 
-// Функция для получения редко используемой фразы
+// Функция для получения редко используемой фразы (ИСПРАВЛЕНА)
 function getRarePhrase(topic, userId) {
+  // Получаем фразы для темы, гарантируя что это массив
   const phrases = knowledgeBase[topic] || knowledgeBase.general;
+  
+  // Убеждаемся что phrases - это массив
+  if (!Array.isArray(phrases) || phrases.length === 0) {
+    console.log(`No phrases found for topic: ${topic}, using general`);
+    return knowledgeBase.general[Math.floor(Math.random() * knowledgeBase.general.length)];
+  }
+  
   const userUsage = phraseUsage.get(userId) || new Map();
   
   // Фильтруем фразы по частоте использования
-  const availablePhrases = phrases.filter((phrase, index) => {
+  const availablePhrases = phrases.filter((phrase) => {
     const usageCount = userUsage.get(phrase) || 0;
     return usageCount < 2; // Максимум 2 использования на фразу
   });
   
-  // Если все фразы использованы много раз, сбрасываем счетчики
+  // Если все фразы использованы много раз, сбрасываем счетчики для этой темы
+  let selectedPhrase;
   if (availablePhrases.length === 0) {
-    phraseUsage.set(userId, new Map());
-    return phrases[Math.floor(Math.random() * phrases.length)];
+    // Сбрасываем счетчики только для этой темы
+    for (const phrase of phrases) {
+      userUsage.set(phrase, 0);
+    }
+    selectedPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+  } else {
+    // Выбираем случайную фразу из доступных
+    selectedPhrase = availablePhrases[Math.floor(Math.random() * availablePhrases.length)];
   }
-  
-  // Выбираем случайную фразу из доступных
-  const selectedPhrase = availablePhrases[Math.floor(Math.random() * availablePhrases.length)];
   
   // Обновляем счетчик использования
   const newUsageCount = (userUsage.get(selectedPhrase) || 0) + 1;
@@ -311,112 +334,130 @@ function categorizeMessage(text) {
   return topic !== 'general' ? topic : 'general';
 }
 
-// Функция для проверки, нужно ли отвечать
+// Функция для проверки, нужно ли отвечать (ИСПРАВЛЕНА)
 function shouldRespond(ctx) {
-  const messageText = ctx.message.text.toLowerCase();
-  const isReply = ctx.message.reply_to_message;
-  
-  // Проверяем упоминание Олега
-  const hasTrigger = triggerWords.some(word => 
-    messageText.includes(word)
-  );
-  
-  // Проверяем, является ли ответом на сообщение Олега
-  const isReplyToOleg = isReply && 
-    ctx.message.reply_to_message.from.username === ctx.botInfo.username;
-  
-  // Иногда отвечаем на вопросы даже без упоминания (30% chance)
-  const isQuestion = /(\?|что|как|почему|зачем)/.test(messageText);
-  const randomResponse = isQuestion && Math.random() < 0.3;
-  
-  return hasTrigger || isReplyToOleg || randomResponse;
-}
-
-// Улучшенная функция генерации ответа
-function generateResponse(userId, userMessage, username) {
-  const category = categorizeMessage(userMessage);
-  const userTopic = getUserPreferredTopic(userId);
-  const context = getContext(userId, category);
-  
-  // Определяем, какую тему использовать
-  let responseTopic = category;
-  if (category === 'general' && userTopic !== 'general') {
-    responseTopic = userTopic;
-  }
-  
-  // Получаем редко используемую фразу
-  let response = getRarePhrase(responseTopic, userId);
-  
-  // Добавляем персонализацию на основе контекста
-  if (context) {
-    const contextVariations = [
-      `Кстати, о том что ты говорил "${context.substring(0, 40)}..."`,
-      `Помнишь, мы обсуждали "${context.substring(0, 35)}"?`,
-      `В продолжение твоей мысли о "${context.substring(0, 30)}"...`,
-      `Насчет твоего сообщения "${context.substring(0, 35)}"...`
-    ];
+  try {
+    const messageText = ctx.message.text.toLowerCase();
+    const isReply = ctx.message.reply_to_message;
     
-    if (Math.random() < 0.6) { // 60% chance использовать контекст
-      response = contextVariations[Math.floor(Math.random() * contextVariations.length)];
+    // Проверяем упоминание Олега
+    const hasTrigger = triggerWords.some(word => 
+      messageText.includes(word)
+    );
+    
+    // Проверяем, является ли ответом на сообщение Олега
+    let isReplyToOleg = false;
+    if (isReply && ctx.botInfo) {
+      isReplyToOleg = ctx.message.reply_to_message.from.username === ctx.botInfo.username;
     }
+    
+    // Иногда отвечаем на вопросы даже без упоминания (20% chance)
+    const isQuestion = /(\?|что|как|почему|зачем)/.test(messageText);
+    const randomResponse = isQuestion && Math.random() < 0.2;
+    
+    return hasTrigger || isReplyToOleg || randomResponse;
+  } catch (error) {
+    console.error('Error in shouldRespond:', error);
+    return false;
   }
-  
-  // Добавляем использование слов пользователя
-  const userWords = userMessage.split(' ').filter(word => 
-    word.length > 3 && 
-    !triggerWords.includes(word.toLowerCase()) &&
-    !/(http|www|\.com|\.ru)/.test(word)
-  );
-  
-  if (userWords.length > 0 && Math.random() < 0.4) {
-    const randomWord = userWords[Math.floor(Math.random() * userWords.length)];
-    const wordVariations = [
-      `Мне интересно твое мнение о "${randomWord}"`,
-      `Расскажи больше про "${randomWord}"`,
-      `А что для тебя значит "${randomWord}"?`,
-      `Интересное слово "${randomWord}"...`
-    ];
-    response = wordVariations[Math.floor(Math.random() * wordVariations.length)];
-  }
-  
-  // Иногда добавляем имя пользователя
-  if (username && Math.random() < 0.3) {
-    response = response.replace(/\.$/, '') + `, ${username}`;
-  }
-  
-  return response;
 }
 
-// Обработчик сообщений
-bot.on(message('text'), async (ctx) => {
-  const userId = ctx.from.id;
-  const userMessage = ctx.message.text;
-  const username = ctx.from.first_name;
-  
-  console.log(`Message from ${username}: ${userMessage}`);
-  console.log(`Detected topic: ${detectTopic(userMessage)}`);
-  
-  // Добавляем сообщение в историю с анализом темы
-  addToHistory(userId, userMessage, username);
-  
-  // Проверяем, нужно ли отвечать
-  if (shouldRespond(ctx)) {
-    // Генерируем ответ
-    const response = generateResponse(userId, userMessage, username);
+// Улучшенная функция генерации ответа (ИСПРАВЛЕНА)
+function generateResponse(userId, userMessage, username) {
+  try {
+    const category = categorizeMessage(userMessage);
+    const userTopic = getUserPreferredTopic(userId);
+    const context = getContext(userId, category);
     
-    console.log(`Responding to ${username}: ${response}`);
-    console.log(`User topics:`, Array.from(userTopics.get(userId) || []));
+    console.log(`Generating response for category: ${category}, userTopic: ${userTopic}`);
     
-    // Отправляем ответ с естественной задержкой
-    const delay = Math.random() * 3000 + 1500;
+    // Определяем, какую тему использовать
+    let responseTopic = category;
+    if (category === 'general' && userTopic !== 'general') {
+      responseTopic = userTopic;
+    }
     
-    setTimeout(async () => {
-      try {
-        await ctx.reply(response);
-      } catch (error) {
-        console.error('Error sending message:', error);
+    // Получаем редко используемую фразу
+    let response = getRarePhrase(responseTopic, userId);
+    
+    // Добавляем персонализацию на основе контекста
+    if (context && context.length > 5) {
+      const contextVariations = [
+        `Кстати, о том что ты говорил "${context.substring(0, 40)}..."`,
+        `Помнишь, мы обсуждали "${context.substring(0, 35)}"?`,
+        `В продолжение твоей мысли о "${context.substring(0, 30)}"...`,
+        `Насчет твоего сообщения "${context.substring(0, 35)}"...`
+      ];
+      
+      if (Math.random() < 0.4) { // 40% chance использовать контекст
+        response = contextVariations[Math.floor(Math.random() * contextVariations.length)];
       }
-    }, delay);
+    }
+    
+    // Добавляем использование слов пользователя
+    const userWords = userMessage.split(' ').filter(word => 
+      word.length > 3 && 
+      !triggerWords.includes(word.toLowerCase()) &&
+      !/(http|www|\.com|\.ru)/.test(word)
+    );
+    
+    if (userWords.length > 0 && Math.random() < 0.3) {
+      const randomWord = userWords[Math.floor(Math.random() * userWords.length)];
+      const wordVariations = [
+        `Мне интересно твое мнение о "${randomWord}"`,
+        `Расскажи больше про "${randomWord}"`,
+        `А что для тебя значит "${randomWord}"?`,
+        `Интересное слово "${randomWord}"...`
+      ];
+      response = wordVariations[Math.floor(Math.random() * wordVariations.length)];
+    }
+    
+    // Иногда добавляем имя пользователя
+    if (username && Math.random() < 0.2) {
+      response = response.replace(/\.$/, '') + `, ${username}`;
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Error in generateResponse:', error);
+    // Возвращаем запасной ответ в случае ошибки
+    return 'Интересно... Расскажи подробнее!';
+  }
+}
+
+// Обработчик сообщений (ИСПРАВЛЕН)
+bot.on(message('text'), async (ctx) => {
+  try {
+    const userId = ctx.from.id;
+    const userMessage = ctx.message.text;
+    const username = ctx.from.first_name;
+    
+    console.log(`Message from ${username}: ${userMessage}`);
+    console.log(`Detected topic: ${detectTopic(userMessage)}`);
+    
+    // Добавляем сообщение в историю с анализом темы
+    addToHistory(userId, userMessage, username);
+    
+    // Проверяем, нужно ли отвечать
+    if (shouldRespond(ctx)) {
+      // Генерируем ответ
+      const response = generateResponse(userId, userMessage, username);
+      
+      console.log(`Responding to ${username}: ${response}`);
+      
+      // Отправляем ответ с естественной задержкой
+      const delay = Math.random() * 2000 + 1000;
+      
+      setTimeout(async () => {
+        try {
+          await ctx.reply(response);
+        } catch (error) {
+          console.error('Error sending message:', error);
+        }
+      }, delay);
+    }
+  } catch (error) {
+    console.error('Error processing message:', error);
   }
 });
 
@@ -449,33 +490,29 @@ bot.command('reset', (ctx) => {
 
 // Периодическая очистка старых данных
 setInterval(() => {
-  const now = Date.now();
-  const threeHours = 3 * 60 * 60 * 1000;
-  let clearedHistories = 0;
-  let clearedTopics = 0;
-  
-  // Очищаем старую историю
-  for (const [userId, history] of conversationHistory.entries()) {
-    const filteredHistory = history.filter(msg => 
-      now - msg.timestamp < threeHours
-    );
+  try {
+    const now = Date.now();
+    const threeHours = 3 * 60 * 60 * 1000;
+    let clearedHistories = 0;
     
-    if (filteredHistory.length === 0) {
-      conversationHistory.delete(userId);
-      clearedHistories++;
-    } else {
-      conversationHistory.set(userId, filteredHistory);
+    // Очищаем старую историю
+    for (const [userId, history] of conversationHistory.entries()) {
+      const filteredHistory = history.filter(msg => 
+        now - msg.timestamp < threeHours
+      );
+      
+      if (filteredHistory.length === 0) {
+        conversationHistory.delete(userId);
+        clearedHistories++;
+      } else {
+        conversationHistory.set(userId, filteredHistory);
+      }
     }
+    
+    console.log(`Cleaned up: ${clearedHistories} histories`);
+  } catch (error) {
+    console.error('Error in cleanup:', error);
   }
-  
-  // Очищаем редко используемые фразы
-  for (const [userId, usage] of phraseUsage.entries()) {
-    if (now - (usage.get('_lastActive') || 0) > threeHours) {
-      phraseUsage.delete(userId);
-    }
-  }
-  
-  console.log(`Cleaned up: ${clearedHistories} histories, ${clearedTopics} topics`);
 }, 60 * 60 * 1000); // Каждый час
 
 // Запуск бота
