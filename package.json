@@ -1,11 +1,10 @@
 {
   "name": "telegram-bot-oleg",
   "version": "1.0.0",
-  "description": "Самообучающийся бот Олег для Telegram",
+  "description": "Самообучающийся бот Олег со сленгом и юмором",
   "main": "bot.js",
   "scripts": {
-    "start": "node bot.js",
-    "dev": "nodemon bot.js"
+    "start": "node bot.js"
   },
   "dependencies": {
     "telegraf": "^4.15.3",
