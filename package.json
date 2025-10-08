@@ -1,7 +1,7 @@
 {
   "name": "telegram-bot-oleg",
   "version": "1.0.0",
-  "description": "Самообучающийся бот Олег со сленгом и юмором",
+  "description": "Креативный бот Олег - генератор уникальных фраз",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
